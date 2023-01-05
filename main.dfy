@@ -1,8 +1,88 @@
+// Checks what the name suggests
 predicate Contains(xs: array<int>, x: int)
 reads xs
 {
     exists i :: 0 <= i < xs.Length && xs[i] == x
 }
+
+// Checks if an array is *strictly* increasing.
+// Note: this implies uniqueness.
+predicate Increases(xs: array<int>)
+reads xs
+{
+    forall i, j :: 0 <= i < j < xs.Length ==> xs[i] < xs[j]
+}
+
+// Checks if an integer is prime.
+predicate IsPrime(x: int)
+{
+    x >= 2 && forall y :: 2 <= y < x ==> x % y != 0
+}
+
+lemma CompositeTest()
+ensures !IsPrime(209)
+{
+    var y := 11;
+    assert 209 % y == 0;
+}
+
+// This proof doesn't work. Getting help right now.
+/*
+lemma PrimeDivisorExists(n: int)
+decreases n
+requires n >= 2
+ensures exists p :: IsPrime(p) && n % p == 0
+{
+    if(!IsPrime(n)) {
+        var m :| 2 <= m < n && n % m == 0;
+        PrimeDivisorExists(m);
+    }
+}
+*/
+
+lemma PrimeTest()
+ensures !IsPrime(0)
+ensures IsPrime(2)
+ensures IsPrime(3)
+ensures !IsPrime(4)
+ensures IsPrime(5)
+ensures !IsPrime(6)
+ensures !IsPrime(11 * 17)
+ensures IsPrime(127)
+{
+    var x := 4 % 2;
+    x := 6 % 2;
+    x := (11 * 17) % 11;
+}
+
+/*
+{
+    if(IsPrime(n)) {
+        var d := n;
+        var z := d % n;
+        assert IsPrime(n) && n % n == 0;
+        assert exists x :: IsPrime(x) && n % x == 0;
+    } else {
+        var m :| 2 <= m < n && n % m == 0;
+        assert 2 <= m < n;
+        assert 0 <= m < n;
+        PrimeDivisorExists(m);
+        /*
+        PrimeDivisorExists(m);
+        var p :| IsPrime(p) && m % p == 0;
+        assert n == m * (n / m);
+        assert m % p == 0;
+        assert (m * (n / m)) % p == 0;
+        assert n % p == 0;
+        assert IsPrime(p);
+        assert IsPrime(p) && n % p == 0;
+        assert exists x :: IsPrime(x) && n % x == 0;
+    }
+    assert exists x :: IsPrime(x) && n % x == 0;
+    var x :| IsPrime(x) && n % x == 0; */
+    }
+}
+*/
 
 // Removes the i-th element of an array.
 method RemoveIth(xs: array<int>, i: int) returns (ys: array<int>)
@@ -50,11 +130,16 @@ ensures ys[xs.Length] == x
     ys[xs.Length] := x;
 }
 
-// Filters away all multiples of m from an array xs
+// Filters away all multiples of m from an array xs, except m itself.
+// TODO possibly good to have:
+// * array uniqueness
+// * array increasing
 method RemoveMultiples(xs: array<int>, m: int) returns (sieved: array<int>)
 requires m > 0
-ensures forall k :: 0 <= k < sieved.Length ==> sieved[k] % m != 0
-ensures forall k :: 0 <= k < xs.Length ==> xs[k] % m != 0 ==> Contains(sieved, xs[k])
+// Result doesn't contain what it shouldn't.
+ensures forall k :: 0 <= k < sieved.Length ==> sieved[k] % m != 0 || sieved[k] == m
+// Keeps what should be preserved.
+ensures forall k :: 0 <= k < xs.Length ==> (xs[k] % m != 0 || xs[k] == m) ==> Contains(sieved, xs[k])
 ensures sieved.Length <= xs.Length
 {
     sieved := new int[0];
@@ -62,14 +147,47 @@ ensures sieved.Length <= xs.Length
     while(i < xs.Length)
     decreases xs.Length - i
     invariant i <= xs.Length
-    invariant forall k :: 0 <= k < sieved.Length ==> sieved[k] % m != 0
-    invariant forall k :: 0 <= k < i ==> k < xs.Length && xs[k] % m != 0 ==> Contains(sieved, xs[k])
+    invariant forall k :: 0 <= k < sieved.Length ==> sieved[k] % m != 0 || sieved[k] == m
+    invariant forall k :: 0 <= k < i ==> k < xs.Length && (xs[k] % m != 0 || xs[k] == m) ==> Contains(sieved, xs[k])
     invariant sieved.Length <= i
     {
-        if(xs[i] % m != 0) {
+        if(xs[i] % m != 0 || xs[i] == m) {
             sieved := Append(sieved, xs[i]);
         }
         i := i + 1;
+    }
+}
+
+// Creates an array containing integers in the interval [low, high)
+method Range(low: int, high: int) returns (arr: array<int>)
+requires high - low >= 0
+ensures arr.Length == high - low
+ensures forall i :: 0 <= i < high - low ==> arr[i] == low + i
+ensures forall x :: Contains(arr, x) ==> low <= x < high
+ensures Increases(arr)
+{
+    var len := high - low;
+    arr := new int[len];
+    var i := 0;
+    while(i < len)
+    invariant forall j :: 0 <= j < i ==> j < arr.Length && arr[j] == j + low
+    {
+        arr[i] := i + low;
+        i := i + 1;
+    }
+}
+
+// Computes an array of primes up to and including n
+// Currently indeed outputs primes, but *not* the actual Eratosthene's sieve yet
+method Eratosthenes(n: int) returns (primes: array<int>)
+requires n >= 2
+{
+    primes := Range(2, n);
+    var m := 2;
+    while(m < n)
+    {
+        primes := RemoveMultiples(primes, m);
+        m := m + 1;
     }
 }
 
@@ -83,7 +201,6 @@ method PrintArr(xs: array<int>) {
 }
 
 method Main() {
-    var xs := new int[][11, 22, 33, 44, 55, 66, 77];
-    var ys := RemoveMultiples(xs, 3);
-    PrintArr(ys);
+    var primes := Eratosthenes(100);
+    PrintArr(primes);
 }
