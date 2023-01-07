@@ -1,3 +1,66 @@
+include "libraries/src/NonlinearArithmetic/DivMod.dfy"
+include "libraries/src/NonlinearArithmetic/Mul.dfy"
+
+import opened DivMod
+import opened Mul
+
+// Checks if an integer is prime.
+predicate IsPrime(x: int)
+{
+    x >= 2 && forall y :: 2 <= y < x ==> x % y != 0
+}
+
+lemma {:axiom} Test(n: int)
+requires n >= 2
+ensures exists p :: IsPrime(p) && n % p == 0
+{
+    // Dafny complains here.
+    // It is as if my {:axiom} annotation is ignored...
+}
+
+lemma PrimeDivisorExists(n: int)
+decreases n - 2
+requires n >= 2
+//ensures exists p :: IsPrime(p) && n % p == 0
+{
+    if(!IsPrime(n)) {
+        var m :| 2 <= m < n && n % m == 0;
+        Test(m); // treat as axiom for now
+        //PrimeDivisorExists(m);
+        var p :| IsPrime(p) && m % p == 0;
+        assert n == m * (n / m);
+        assert p >= 2;
+        assert n % p == (m * (n / m)) % p;
+        LemmaMulModNoopLeft(m, n / m, p);
+        assert (m % p) * (n / m) % p == m * (n / m) % p;
+        assert 0 * (n / m) % p == m * (n / m) % p;
+        assert 0 % p == m * (n / m) % p;
+        LemmaMulBasics(p);
+        assert 0 * p == 0;
+        //uncommenting next line breaks the proof.
+        assert p >= 2;
+    }
+}
+
+        
+        //assert 0 == 0 * p;
+        //LemmaModMultiplesBasic(0, p);
+        //assert 0 % p == 0;
+
+
+            /*
+            assert 0 < p;
+            
+            */
+            //Uncommenting next line breaks the proof.
+            //assert 0 == 0 * p;
+            
+
+            //assert 0 % p == (0 * p) % p;
+            //LemmaModMultiplesBasic(0, p);
+            //assert (0 * p) % p == 0;
+            //assert m * (n / m) % p == 0;
+
 // Checks what the name suggests
 predicate Contains(xs: array<int>, x: int)
 reads xs
@@ -13,32 +76,12 @@ reads xs
     forall i, j :: 0 <= i < j < xs.Length ==> xs[i] < xs[j]
 }
 
-// Checks if an integer is prime.
-predicate IsPrime(x: int)
-{
-    x >= 2 && forall y :: 2 <= y < x ==> x % y != 0
-}
-
 lemma CompositeTest()
 ensures !IsPrime(209)
 {
     var y := 11;
     assert 209 % y == 0;
 }
-
-// This proof doesn't work. Getting help right now.
-/*
-lemma PrimeDivisorExists(n: int)
-decreases n
-requires n >= 2
-ensures exists p :: IsPrime(p) && n % p == 0
-{
-    if(!IsPrime(n)) {
-        var m :| 2 <= m < n && n % m == 0;
-        PrimeDivisorExists(m);
-    }
-}
-*/
 
 lemma PrimeTest()
 ensures !IsPrime(0)
