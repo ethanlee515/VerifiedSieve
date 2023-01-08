@@ -10,56 +10,20 @@ predicate IsPrime(x: int)
     x >= 2 && forall y :: 2 <= y < x ==> x % y != 0
 }
 
-lemma {:axiom} Test(n: int)
+lemma PrimeDivisorExists(n: int)
+decreases n
 requires n >= 2
 ensures exists p :: IsPrime(p) && n % p == 0
 {
-    // Dafny complains here.
-    // It is as if my {:axiom} annotation is ignored...
-}
-
-lemma PrimeDivisorExists(n: int)
-decreases n - 2
-requires n >= 2
-//ensures exists p :: IsPrime(p) && n % p == 0
-{
     if(!IsPrime(n)) {
         var m :| 2 <= m < n && n % m == 0;
-        Test(m); // treat as axiom for now
-        //PrimeDivisorExists(m);
+        PrimeDivisorExists(m);
         var p :| IsPrime(p) && m % p == 0;
-        assert n == m * (n / m);
-        assert p >= 2;
-        assert n % p == (m * (n / m)) % p;
+        LemmaFundamentalDivMod(n, m);
         LemmaMulModNoopLeft(m, n / m, p);
-        assert (m % p) * (n / m) % p == m * (n / m) % p;
-        assert 0 * (n / m) % p == m * (n / m) % p;
-        assert 0 % p == m * (n / m) % p;
-        LemmaMulBasics(p);
-        assert 0 * p == 0;
-        //uncommenting next line breaks the proof.
-        assert p >= 2;
+        LemmaSmallMod(0, p);
     }
 }
-
-        
-        //assert 0 == 0 * p;
-        //LemmaModMultiplesBasic(0, p);
-        //assert 0 % p == 0;
-
-
-            /*
-            assert 0 < p;
-            
-            */
-            //Uncommenting next line breaks the proof.
-            //assert 0 == 0 * p;
-            
-
-            //assert 0 % p == (0 * p) % p;
-            //LemmaModMultiplesBasic(0, p);
-            //assert (0 * p) % p == 0;
-            //assert m * (n / m) % p == 0;
 
 // Checks what the name suggests
 predicate Contains(xs: array<int>, x: int)
@@ -68,64 +32,74 @@ reads xs
     exists i :: 0 <= i < xs.Length && xs[i] == x
 }
 
-// Checks if an array is *strictly* increasing.
-// Note: this implies uniqueness.
-predicate Increases(xs: array<int>)
+// Checks what the name suggests
+// Implies uniqueness
+predicate StrictlyIncreasing(xs: array<int>)
 reads xs
 {
     forall i, j :: 0 <= i < j < xs.Length ==> xs[i] < xs[j]
 }
 
-lemma CompositeTest()
-ensures !IsPrime(209)
+predicate SievedUpTo(xs: array<int>, p: int, n: int)
+requires IsPrime(p)
+reads xs
 {
-    var y := 11;
-    assert 209 % y == 0;
+    forall x :: Contains(xs, x) <==> (2 <= x <= n && (forall y :: IsPrime(y) && 2 <= y <= p ==> x % y != 0))
 }
 
-lemma PrimeTest()
-ensures !IsPrime(0)
-ensures IsPrime(2)
-ensures IsPrime(3)
-ensures !IsPrime(4)
-ensures IsPrime(5)
-ensures !IsPrime(6)
-ensures !IsPrime(11 * 17)
-ensures IsPrime(127)
+lemma SievedHeadIsPrime(xs: array<int>, p: int, n: int)
+requires IsPrime(p)
+requires SievedUpTo(xs, p, n)
+requires StrictlyIncreasing(xs)
+requires xs.Length > 0
+requires xs[0] >= 2
+ensures IsPrime(xs[0])
 {
-    var x := 4 % 2;
-    x := 6 % 2;
-    x := (11 * 17) % 11;
+    var x := xs[0];
+    if(!IsPrime(x)) {
+        PrimeDivisorExists(x);
+        var m :| IsPrime(m) && x % m == 0;
+        if(m > x) {
+            LemmaSmallMod(x, m);
+        }
+        assert Contains(xs, x);
+        assert Contains(xs, m);
+    }
 }
 
-/*
+lemma NoPrimesBeforeSievedHeadAux(xs: array<int>, p: int, n: int, i: int)
+decreases i
+requires IsPrime(p)
+requires SievedUpTo(xs, p, n)
+requires StrictlyIncreasing(xs)
+requires xs.Length > 0
+requires xs[0] >= 2
+requires p <= i <= xs[0]
+ensures forall c :: p < c < i ==> !IsPrime(c)
 {
-    if(IsPrime(n)) {
-        var d := n;
-        var z := d % n;
-        assert IsPrime(n) && n % n == 0;
-        assert exists x :: IsPrime(x) && n % x == 0;
+    if(i == p) {
+
     } else {
-        var m :| 2 <= m < n && n % m == 0;
-        assert 2 <= m < n;
-        assert 0 <= m < n;
-        PrimeDivisorExists(m);
-        /*
-        PrimeDivisorExists(m);
-        var p :| IsPrime(p) && m % p == 0;
-        assert n == m * (n / m);
-        assert m % p == 0;
-        assert (m * (n / m)) % p == 0;
-        assert n % p == 0;
-        assert IsPrime(p);
-        assert IsPrime(p) && n % p == 0;
-        assert exists x :: IsPrime(x) && n % x == 0;
-    }
-    assert exists x :: IsPrime(x) && n % x == 0;
-    var x :| IsPrime(x) && n % x == 0; */
+        assert i > p;
+        NoPrimesBeforeSievedHeadAux(xs, p, n, i - 1); 
+        if(Contains(xs, i - 1)) {
+
+        } else {
+            assert Contains(xs, xs[0]);
+        }
     }
 }
-*/
+
+lemma NoPrimesBeforeSievedHead(xs: array<int>, p: int, n: int)
+requires IsPrime(p)
+requires SievedUpTo(xs, p, n)
+requires StrictlyIncreasing(xs)
+requires xs.Length > 0
+requires 2 <= p <= xs[0]
+ensures forall c :: p < c < xs[0] ==> !IsPrime(c)
+{
+    NoPrimesBeforeSievedHeadAux(xs, p, n, xs[0]);
+}
 
 // Removes the i-th element of an array.
 method RemoveIth(xs: array<int>, i: int) returns (ys: array<int>)
@@ -136,7 +110,7 @@ ensures forall k :: 0 <= k < i ==> xs[k] == ys[k]
 ensures forall k :: i + 1 <= k < xs.Length ==> xs[k] == ys[k - 1]
 ensures forall k :: (0 <= k < xs.Length && k != i) ==> Contains(ys, xs[k])
 {
-    ys := new int[xs.Length - 1];
+    ys := new int[xs.Length - 1](i => 0);
     // Copying first part of xs into ys
     var j := 0;
     while(j < i)
@@ -162,7 +136,7 @@ ensures ys.Length == xs.Length + 1
 ensures forall j :: 0 <= j < xs.Length ==> xs[j] == ys[j]
 ensures ys[xs.Length] == x
 {
-    ys := new int[xs.Length + 1];
+    ys := new int[xs.Length + 1](i => 0);
     var j := 0;
     while(j < xs.Length)
     invariant forall k :: 0 <= k < j ==> k < xs.Length && ys[k] == xs[k]
@@ -172,6 +146,48 @@ ensures ys[xs.Length] == x
     }
     ys[xs.Length] := x;
 }
+
+// TODO SievedUpto subset relationship on p??
+
+method SieveNext(xs: array<int>, p: int, n: int) returns (sieved: array<int>)
+requires IsPrime(p)
+requires SievedUpTo(xs, p, n)
+requires StrictlyIncreasing(xs)
+requires xs.Length > 0
+requires 2 <= p <= xs[0]
+//ensures SievedUpTo(sieved, xs[0], n)
+{
+    SievedHeadIsPrime(xs, p, n);
+    assert IsPrime(xs[0]);
+    var x := xs[0];
+
+    // forall x :: Contains(xs, x) <==> (forall y :: IsPrime(y) && 2 <= y <= p ==> x % y != 0)
+
+    sieved := new int[0];
+    assert SievedUpTo(sieved, x, 0);
+
+
+
+    var i := 0;
+    while(i < xs.Length)
+    invariant i <= xs.Length
+    ///invariant forall k :: 0 <= k < sieved.Length ==> sieved[k] % x != 0
+    //invariant forall k :: 0 <= k < i ==> k < xs.Length && (xs[k] % x != 0) ==> Contains(sieved, xs[k])
+    //invariant sieved.Length <= i
+    //invariant SievedUpTo(sieved, x, i)
+    {
+        if(xs[i] % x != 0) {
+            sieved := Append(sieved, xs[i]);
+        }
+        i := i + 1;
+    }
+
+    // forall x :: Contains(xs, x) <==> (forall y :: IsPrime(y) && 2 <= y <= p ==> x % y != 0)
+    NoPrimesBeforeSievedHead(xs, p, n);
+    //assert forall x :: Contains(sieved, x) <==> (forall y :: IsPrime(y) && 2 <= y <= p ==> x % y != 0);
+}
+
+
 
 // Filters away all multiples of m from an array xs, except m itself.
 // TODO possibly good to have:
@@ -207,10 +223,10 @@ requires high - low >= 0
 ensures arr.Length == high - low
 ensures forall i :: 0 <= i < high - low ==> arr[i] == low + i
 ensures forall x :: Contains(arr, x) ==> low <= x < high
-ensures Increases(arr)
+ensures StrictlyIncreasing(arr)
 {
     var len := high - low;
-    arr := new int[len];
+    arr := new int[len](i => 0);
     var i := 0;
     while(i < len)
     invariant forall j :: 0 <= j < i ==> j < arr.Length && arr[j] == j + low
