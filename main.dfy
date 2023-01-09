@@ -217,7 +217,7 @@ ensures sieved.Length < xs.Length
 // Computes an array of primes up to n
 method Eratosthenes(n: int) returns (primes: array<int>)
 requires n > 2
-ensures forall m :: (2 <= m < n && IsPrime(m)) <==> Contains(primes, m)
+ensures forall p :: (2 <= p < n && IsPrime(p)) <==> Contains(primes, p)
 ensures StrictlyIncreasing(primes)
 {
     primes := new int[0];
