@@ -13,3 +13,12 @@ Dafny postconditions should be used to ensure that the output array satisfies th
 ## Status
 
 Done! Pending 1st discussion with teammates.
+
+Here are some initial observations in the meantime:
+* The implementation is quite inefficient, as Dafny does not offer dynamic arrays.
+To work around this issue, our code currently makes many extraneous copies on arrays.
+* To prove "for all" properties over an integer interval (such as `ensures forall x :: m <= x < n ==> !IsPrime(x)`),
+currently we resort to induction, which is encoded in Dafny as recursions.
+This looks quite clunky and maybe there are better ways.
+* While Dafny array doesn't seem to offer "basic" functionalities such as membership-checking or filtering,
+implementing desired functionalities from scratch turned out to be less involved than expected.
