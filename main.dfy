@@ -217,7 +217,7 @@ ensures sieved.Length < xs.Length
 // Computes an array of primes up to n
 method Eratosthenes(n: int) returns (primes: array<int>)
 requires n > 2
-ensures forall m :: (2 <= m < n && IsPrime(m)) ==> Contains(primes, m)
+ensures forall m :: (2 <= m < n && IsPrime(m)) <==> Contains(primes, m)
 ensures StrictlyIncreasing(primes)
 {
     primes := new int[0];
@@ -227,7 +227,7 @@ ensures StrictlyIncreasing(primes)
     invariant xs.Length > 0 ==> SievedUpTo(xs, xs[0], n)
     invariant StrictlyIncreasing(xs)
     // the prime list indeed contains only primes
-    invariant forall p :: Contains(primes, p) ==> IsPrime(p)
+    invariant forall p :: Contains(primes, p) ==> 2 <= p < n && IsPrime(p)
     // the prime list hasn't "missed" anything so far
     invariant xs.Length > 0 ==> forall m :: 2 <= m < xs[0] && IsPrime(m) ==> Contains(primes, m)
     // what we get in the final iteration
@@ -237,6 +237,7 @@ ensures StrictlyIncreasing(primes)
     invariant StrictlyIncreasing(primes)
     {
         var p := xs[0];
+        assert Contains(xs, p);
         SievedHeadIsPrime(xs, p, n);
         xs := SieveNext(xs, n);
         if(xs.Length > 0) {
