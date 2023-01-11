@@ -17,6 +17,18 @@ Done! Pending 1st discussion with teammates.
 Here are some initial observations in the meantime:
 * The implementation is quite inefficient, as Dafny does not offer dynamic arrays.
 To work around this issue, our code currently makes many extraneous copies on arrays.
+* Proving existentials is surprisingly simple for Dafny.
+For example, the following works just fine:
+```
+lemma TestComposite()
+    ensures !IsPrime(361)
+{
+    var p := 19;
+    var x := 361;
+    var y := 361 % 19;
+    assert y == 0;
+}
+```
 * To prove "for all" properties over an integer interval (such as `ensures forall x :: m <= x < n ==> !IsPrime(x)`),
 currently we resort to induction, which is encoded in Dafny as recursions.
 This looks quite clunky and maybe there are better ways.
